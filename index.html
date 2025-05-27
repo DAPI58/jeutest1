@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Sauve Mazarine face à la ruralité !</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      text-align: center;
+      background: #ccf0ff;
+    }
+    canvas {
+      display: none;
+      margin: 0 auto;
+      border: 2px solid #000;
+      background: #ccf0ff;
+    }
+    #startBtn, #restartBtn {
+      padding: 10px 20px;
+      font-size: 1.2rem;
+      margin-top: 20px;
+      cursor: pointer;
+    }
+    #info {
+      font-size: 1.1rem;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Sauve Mazarine face à la ruralité !</h1>
+  <p id="info">Clique sur le jeu pour faire sauter Mazarine !</p>
+  <button id="startBtn">Commencer</button>
+  <canvas id="gameCanvas" width="480" height="640"></canvas>
+  <button id="restartBtn" style="display: none;">Rejouer</button>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+      const startBtn = document.getElementById('startBtn');
+      const restartBtn = document.getElementById('restartBtn');
+      const info = document.getElementById('info');
+
+      const playerEmoji = '👩‍🦰';
+      const obstacleEmojis = ['🚜', '🐄', '🐓', '🧑‍🌾', '🛻'];
+      let obstacles = [];
+      let lives = 3;
+      let timer = 60;
+      let gameRunning = false;
+      let gameOver = false;
+      let gameLoopId;
+      let obstacleInterval, timerInterval;
+
+      const player = {
+        x: 100,
+        y: 300,
+        size: 40,
+        velocity: 0,
+        gravity: 0.6,
+        lift: -10
+      };
+
+      function drawPlayer() {
+        ctx.font = `${player.size}px Arial`;
+        ctx.textBaseline = "top";
+        ctx.fillText(playerEmoji, player.x, player.y);
+      }
+
+      function drawObstacles() {
+        ctx.font = "32px Arial";
+        for (let obs of obstacles) {
+          ctx.fillText(obs.emoji, obs.x, obs.y);
+          obs.x -= 3;
+        }
+
+        obstacles = obstacles.filter(obs => obs.x + 32 > 0);
+      }
+
+      function spawnObstacle() {
+        const emoji = obstacleEmojis[Math.floor(Math.random() * obstacleEmojis.length)];
+        const y = Math.random() * (canvas.height - 50);
+        obstacles.push({ x: canvas.width, y: y, emoji: emoji });
+      }
+
+      function detectCollision() {
+        for (let obs of obstacles) {
+          const dx = player.x - obs.x;
+          const dy = player.y - obs.y;
+          if (Math.abs(dx) < 32 && Math.abs(dy) < 32) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function drawHUD() {
+        ctx.fillStyle = 'black';
+        ctx.font = '18px Arial';
+        ctx.fillText(`Vies : ${lives}`, 10, 10);
+        ctx.fillText(`Temps : ${timer}s`, 370, 10);
+      }
+
+      function drawEndMessage(message) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, canvas.height / 2 - 100, canvas.width, 200);
+        ctx.fillStyle = 'white';
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(message, canvas.width / 2, canvas.height / 2);
+        restartBtn.style.display = 'inline-block';
+      }
+
+      function endGame(victory) {
+        clearInterval(obstacleInterval);
+        clearInterval(timerInterval);
+        gameRunning = false;
+        gameOver = true;
+
+        const message = victory
+          ? "✨ Tu es un fabuleux bobo écolo socialo ! 🌿🥖🚴‍♂️"
+          : "😱 Tu es devenu un horrible paysan nivernais 🧑‍🌾";
+
+        drawEndMessage(message);
+      }
+
+      function gameLoop() {
+        if (!gameRunning) return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Physique du saut
+        player.velocity += player.gravity;
+        player.y += player.velocity;
+
+        // Limites verticales
+        if (player.y > canvas.height - player.size) {
+          player.y = canvas.height - player.size;
+          player.velocity = 0;
+        }
+        if (player.y < 0) {
+          player.y = 0;
+          player.velocity = 0;
+        }
+
+        drawPlayer();
+        drawObstacles();
+        drawHUD();
+
+        if (detectCollision()) {
+          lives--;
+          if (lives <= 0) {
+            endGame(false);
+            return;
+          }
+          // Supprimer obstacles proches pour éviter collisions multiples
+          obstacles = obstacles.filter(obs => player.x - obs.x > 50);
+        }
+
+        gameLoopId = requestAnimationFrame(gameLoop);
+      }
+
+      function startGame() {
+        lives = 3;
+        timer = 60;
+        obstacles = [];
+        player.y = 300;
+        player.velocity = 0;
+        gameRunning = true;
+        gameOver = false;
+        canvas.style.display = 'block';
+        restartBtn.style.display = 'none';
+        info.textContent = "Clique sur le jeu pour faire sauter Mazarine !";
+
+        // Obstacle + timer
+        obstacleInterval = setInterval(spawnObstacle, 1200);
+        timerInterval = setInterval(() => {
+          timer--;
+          if (timer <= 0) {
+            endGame(true);
+          }
+        }, 1000);
+
+        gameLoop();
+      }
+
+      // Click pour sauter
+      canvas.addEventListener('click', () => {
+        if (gameRunning) {
+          player.velocity = player.lift;
+        }
+      });
+
+      startBtn.addEventListener('click', () => {
+        startBtn.style.display = 'none';
+        startGame();
+      });
+
+      restartBtn.addEventListener('click', () => {
+        cancelAnimationFrame(gameLoopId);
+        startGame();
+      });
+    });
+  </script>
+</body>
+</html>
